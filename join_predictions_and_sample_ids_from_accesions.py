@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Author: Inês Almeida
+Author: Ines Almeida
 """
 
 import os
@@ -43,9 +43,9 @@ def dictFromTable(table: list, keyCollumn: int):
 def getPrediction(filePath:str):
     #check if pred file exists
     if os.path.exists(filePath):
-        return listTSVFile(filePath)[0][1]
+        return listTSVFile(filePath)[0][1:5]
     else:
-        return ""
+        return [""]
 
 def getSequencingPlatform(row: list, sample: str):
     sra_list = row[4].split(',')
@@ -85,7 +85,7 @@ def main(main_directory: str, output_directory: str):
         results_directory_path = os.path.join(main_directory, results_directory)
 
         interval_string = '_'.join(getNumberInterval(results_directory))
-        fetcher_table = os.path.join(main_directory, getFetcherTable(fetcher_tables, interval_string))#.replace("\\","/")
+        fetcher_table = os.path.join(main_directory, getFetcherTable(fetcher_tables, interval_string))
 
         # make dictionary with SRA and Ids correspondences
         fetcher_table_dict = dictFromTable(listTSVFile(fetcher_table), 4)
@@ -93,13 +93,25 @@ def main(main_directory: str, output_directory: str):
         # get all sample directories present inside results directory
         directories = [d for d in os.listdir(results_directory_path) if os.path.isdir(os.path.join(results_directory_path, d))]
 
+        directories_dict = {directories[i]: directories[i] for i in range(0, len(directories))}
+
         for directory in directories:
             sample = getSampleName(directory) 
-            prediction = getPrediction(os.path.join(results_directory_path, directory, "seroba/pred.tsv"))
+            prediction_list = getPrediction(os.path.join(results_directory_path, directory, "seroba/pred.tsv"))
+            if len(prediction_list) > 1:
+                prediction_list = [e for e in prediction_list if e != ""]
+                prediction = ", ".join(prediction_list)
+            else :
+                prediction = prediction_list[0]
+            
             if prediction == "":
                 no_predictions.append([sample, fetcher_table_dict[sample][0]])
 
             final_dict[sample] = [sample, prediction, fetcher_table_dict[sample][0], getSequencingPlatform(fetcher_table_dict[sample], sample), fetcher_table_dict[sample][4]]
+
+        for sra in fetcher_table_dict:
+            if sra not in directories_dict and sra != "SRA":
+                no_predictions.append([sra, "NO SRA FOLDER FOUND"])
 
     exportListToTSVFile("No_Predictions", no_predictions, main_directory, output_directory, first_line_no_prediction)
     exportListToTSVFile("Predictions_Table_Info", list(final_dict.values()), main_directory, output_directory, first_line_final_table)
